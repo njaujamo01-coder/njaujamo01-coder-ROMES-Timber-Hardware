@@ -5,7 +5,7 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'ke.co.romes.timberhardware'
+        applicationId 'ke.co.romes.timberhardware.new'
         minSdk 23
         targetSdk 35
         versionCode 1
