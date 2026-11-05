@@ -1,27 +1,17 @@
-# njaujamo01-coder-ROMES-Timber-Hardware
-Stock, sales, inventory and business management Android app for ROMES TIMBER &amp; HARDWARE
 # ROMES TIMBER & HARDWARE
 
-Android business management app for ROMES TIMBER & HARDWARE, Gikomba, Nairobi, Kenya.
+Android-first stock and sales app for ROMES TIMBER & HARDWARE, Gikomba, along Quarry Road, Nairobi.
 
-## Main features
-- Stock and inventory management
-- Sales recording
-- Automatic receipt generation
-- Customer records
-- Restocking and supplier records
-- Expenses tracking
-- Daily and monthly sales reports
-- Profit calculations
-- Low-stock alerts
+## First version
+- Add products with opening quantity and selling price
+- View product stock
+- Record sales and automatically reduce stock
+- Restock products
+- View basic sales totals on the dashboard
 
-## Business settings
-- Currency: KES
-- Location: Gikomba, along Quarry Road
-- Staff contacts: James and Lucy
+## Build an APK
+Push this project to the `main` branch on GitHub. The GitHub Actions workflow builds a debug APK.
+Open **Actions**, select the successful **Build ROMES Android APK** run, then download the `ROMES-Timber-Hardware-debug-apk` artifact.
 
-## Platform
-Android application.
-
-## Project status
-Initial setup and development.
+## Important
+This starter stores data locally on the Android device. It does not yet sync across phones or provide cloud backups. Export/backup and multi-user support should be added before using it as the only record of business transactions.
