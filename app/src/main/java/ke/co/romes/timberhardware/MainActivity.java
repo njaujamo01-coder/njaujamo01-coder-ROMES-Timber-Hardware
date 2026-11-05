@@ -56,6 +56,12 @@ public class MainActivity extends Activity {
         root.setOrientation(1);
         root.setPadding(dp(pad), dp(pad), dp(pad), dp(pad));
         root.setBackgroundColor(0xfff5f6f8);
+        ImageView logo = new ImageView(this);
+logo.setImageResource(ke.co.romes.timberhardware.R.drawable.romes_logo);
+logo.setLayoutParams(new LinearLayout.LayoutParams(
+    dp(100), dp(100)));
+logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+root.addView(logo);
 
         TextView h = text("ROMES TIMBER & HARDWARE", 20, true);
         h.setTextColor(0xff183153);
