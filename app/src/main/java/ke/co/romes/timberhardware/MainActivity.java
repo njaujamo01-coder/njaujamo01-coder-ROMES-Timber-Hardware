@@ -128,42 +128,61 @@ public class MainActivity extends Activity {
                 }
             }).show();
     }
+void base(String title) {
+    root = new LinearLayout(this);
+    root.setOrientation(1);
+    root.setPadding(dp(pad), dp(pad), dp(pad), dp(pad));
+    root.setBackgroundColor(0xff101010);
 
-    void base(String title) {
-        root = new LinearLayout(this);
-        root.setOrientation(1);
-        root.setPadding(dp(pad), dp(pad), dp(pad), dp(pad));
-        root.setBackgroundColor(0xfff5f6f8);
+    ImageView logo = new ImageView(this);
+    logo.setImageResource(R.drawable.romes_logo);
+    logo.setLayoutParams(new LinearLayout.LayoutParams(
+        dp(85), dp(85)));
+    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    root.addView(logo);
 
-        ImageView logo = new ImageView(this);
-        logo.setImageResource(R.drawable.romes_logo);
-        logo.setLayoutParams(new LinearLayout.LayoutParams(
-            dp(75), dp(75)));
-        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        root.addView(logo);
+    TextView heading = text("ROMES TIMBER & HARDWARE", 20, true);
+    heading.setTextColor(0xffffc107);
+    root.addView(heading);
 
-        TextView heading = text("ROMES TIMBER & HARDWARE", 19, true);
-        heading.setTextColor(0xff183153);
-        root.addView(heading);
-        root.addView(text(title + "  |  " + staff, 15, true));
+    TextView sub = text(title + "  |  " + staff, 15, true);
+    sub.setTextColor(0xffffffff);
+    root.addView(sub);
 
-        ScrollView sc = new ScrollView(this);
-        content = new LinearLayout(this);
-        content.setOrientation(1);
-        sc.addView(content);
-        root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
+    ScrollView sc = new ScrollView(this);
+    content = new LinearLayout(this);
+    content.setOrientation(1);
+    sc.addView(content);
+    root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(1);
-        nav.addView(button("HOME", this::showHome));
-        nav.addView(button("PRODUCTS", this::showProducts));
-        nav.addView(button("SALES", this::showSale));
-        nav.addView(button("RESTOCK", this::showRestock));
-        nav.addView(button("MORE OPTIONS", this::showMore));
-        root.addView(nav);
+    LinearLayout nav = new LinearLayout(this);
+    nav.setOrientation(1);
 
-        setContentView(root);
+    String[] labels = {
+        "HOME", "PRODUCTS", "SALES",
+        "RESTOCK", "MORE OPTIONS"
+    };
+
+    Runnable[] actions = {
+        this::showHome,
+        this::showProducts,
+        this::showSale,
+        this::showRestock,
+        this::showMore
+    };
+
+    for (int i = 0; i < labels.length; i++) {
+        Button b = button(labels[i], actions[i]);
+        b.setTextColor(0xffffc107);
+        b.setBackgroundTintList(
+            android.content.res.ColorStateList.valueOf(0xff292929));
+        nav.addView(b);
     }
+
+    root.addView(nav);
+    setContentView(root);
+}
+    
 
     void showHome() {
         base("Business dashboard");
@@ -196,6 +215,7 @@ public class MainActivity extends Activity {
             13, false));
         content.addView(button("Add product", this::addProduct));
         content.addView(button("View reports", this::reports));
+        content.addView(button("Create quotation", this::showQuotations));
     }
 
     void showProducts() {
@@ -476,6 +496,7 @@ public class MainActivity extends Activity {
         content.addView(button("Suppliers", () -> people("suppliers")));
         content.addView(button("Record an expense", this::addExpense));
         content.addView(button("Reports", this::reports));
+        content.addView(button("Quotations", this::showQuotations));
         content.addView(button("Change my PIN", this::changePin));
         content.addView(button("Backup business data", () ->
             startActivityForResult(
@@ -670,7 +691,7 @@ public class MainActivity extends Activity {
 
     static class DB extends SQLiteOpenHelper {
         DB(Context c) {
-            super(c, "romes_v3.db", null, 1);
+            super(c, "romes_v3.db", null, 2);
         }
 
         public void onCreate(SQLiteDatabase d) {
@@ -710,7 +731,20 @@ public class MainActivity extends Activity {
         }
 
         public void onUpgrade(SQLiteDatabase d, int oldVersion,
-                              int newVersion) {
-        }
+                      int newVersion) {
+
+    if (oldVersion < 2) {
+        d.execSQL("CREATE TABLE quotations(" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "customer TEXT,date TEXT,staff TEXT," +
+            "discount REAL,total REAL)");
+
+        d.execSQL("CREATE TABLE quotation_items(" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "quotation_id INTEGER,item_name TEXT," +
+            "quantity INTEGER,unit_price REAL," +
+            "line_total REAL)");
+    }
+}
     }
 }
