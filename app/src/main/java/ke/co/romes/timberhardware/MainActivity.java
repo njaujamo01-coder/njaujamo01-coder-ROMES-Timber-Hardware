@@ -156,12 +156,14 @@ void base(String title) {
     root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
 
     LinearLayout nav = new LinearLayout(this);
-    nav.setOrientation(1);
+    nav.setOrientation(0);
+    nav.setBackgroundColor(0xff202020);
+nav.setPadding(dp(3), dp(4), dp(3), dp(4));
 
     String[] labels = {
-        "HOME", "PRODUCTS", "SALES",
-        "RESTOCK", "MORE OPTIONS"
-    };
+    "HOME", "STOCK", "SALES",
+    "RESTOCK", "MORE"
+};
 
     Runnable[] actions = {
         this::showHome,
@@ -176,7 +178,7 @@ void base(String title) {
         b.setTextColor(0xffffc107);
         b.setBackgroundTintList(
             android.content.res.ColorStateList.valueOf(0xff292929));
-        nav.addView(b);
+      nav.addView(b, new LinearLayout.LayoutParams(0, dp(56), 1));
     }
 
     root.addView(nav);
