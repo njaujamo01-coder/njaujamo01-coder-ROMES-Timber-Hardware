@@ -622,7 +622,7 @@ public class MainActivity extends Activity {
             }).show();
     }
 
-    void onActivityResult(int request, int result, Intent data) {
+    @Override public void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
         if (result != RESULT_OK || data == null) return;
 
