@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
         TextView t = new TextView(this);
         t.setText(s);
         t.setTextSize(size);
-        t.setTextColor(0xff202124);
+       t.setTextColor(0xffffffff);
         t.setPadding(0, dp(7), 0, dp(7));
         if (bold) t.setTypeface(null, Typeface.BOLD);
         return t;
@@ -218,6 +218,214 @@ void base(String title) {
         content.addView(button("Create quotation", this::showQuotations));
     }
 
+   void showQuotations() {
+    base("Quotations");
+
+    content.addView(button("+ Create new quotation",
+        this::createQuotation));
+
+    content.addView(text("Saved quotations", 18, true));
+
+    Cursor c = db.getReadableDatabase().rawQuery(
+        "SELECT id,customer,date,total FROM quotations ORDER BY id DESC",
+        null);
+
+    while (c.moveToNext()) {
+        int id = c.getInt(0);
+        String customer = c.getString(1);
+        String quoteDate = c.getString(2);
+        double total = c.getDouble(3);
+
+        content.addView(text(
+            "Quotation Q-" + id +
+            "\nCustomer: " + customer +
+            "\nDate: " + quoteDate +
+            "\nTotal: KES " + money(total), 16, true));
+
+        content.addView(button("View and share quotation",
+            () -> viewQuotation(id)));
+    }
+    c.close();
+}
+
+void createQuotation() {
+    LinearLayout box = new LinearLayout(this);
+    box.setOrientation(1);
+
+    EditText customer = field("Customer name", 1);
+    box.addView(customer);
+
+    new AlertDialog.Builder(this)
+        .setTitle("New quotation")
+        .setView(box)
+        .setNegativeButton("Cancel", null)
+        .setPositiveButton("Continue", (d, w) -> {
+            String name = customer.getText().toString().trim();
+
+            if (name.isEmpty()) {
+                msg("Enter the customer name.");
+                return;
+            }
+
+            quotationItems(name, new ArrayList<String>(),
+                new ArrayList<Integer>(),
+                new ArrayList<Double>());
+        }).show();
+}
+
+void quotationItems(String customer, ArrayList<String> names,
+                    ArrayList<Integer> quantities,
+                    ArrayList<Double> prices) {
+    LinearLayout box = new LinearLayout(this);
+    box.setOrientation(1);
+
+    EditText item = field("Item description", 1);
+    EditText qty = field("Quantity", 2);
+    EditText price = field("Price per item (KES)", 8194);
+
+    box.addView(item);
+    box.addView(qty);
+    box.addView(price);
+
+    TextView summary = text("Items added: " + names.size(), 16, true);
+summary.setTextColor(0xff202124);
+box.addView(summary);
+
+    new AlertDialog.Builder(this)
+        .setTitle("Add quotation item")
+        .setView(box)
+        .setNegativeButton("Finish", (d, w) ->
+            saveQuotation(customer, names, quantities, prices))
+        .setNeutralButton("Add another", (d, w) -> {
+            try {
+                String n = item.getText().toString().trim();
+                int q = Integer.parseInt(qty.getText().toString());
+                double p = Double.parseDouble(price.getText().toString());
+
+                if (n.isEmpty() || q <= 0 || p < 0)
+                    throw new Exception();
+
+                names.add(n);
+                quantities.add(q);
+                prices.add(p);
+
+                quotationItems(customer, names, quantities, prices);
+            } catch (Exception e) {
+                msg("Enter a valid item, quantity and price.");
+                quotationItems(customer, names, quantities, prices);
+            }
+        })
+        .show();
+}
+
+void saveQuotation(String customer, ArrayList<String> names,
+                   ArrayList<Integer> quantities,
+                   ArrayList<Double> prices) {
+    if (names.isEmpty()) {
+        msg("Add at least one item.");
+        return;
+    }
+
+    double total = 0;
+
+    for (int i = 0; i < names.size(); i++)
+        total += quantities.get(i) * prices.get(i);
+
+    SQLiteDatabase database = db.getWritableDatabase();
+    database.beginTransaction();
+
+    try {
+        ContentValues quote = new ContentValues();
+        quote.put("customer", customer);
+        quote.put("date", date());
+        quote.put("staff", staff);
+        quote.put("discount", 0);
+        quote.put("total", total);
+
+        long id = database.insertOrThrow(
+            "quotations", null, quote);
+
+        for (int i = 0; i < names.size(); i++) {
+            ContentValues line = new ContentValues();
+            line.put("quotation_id", id);
+            line.put("item_name", names.get(i));
+            line.put("quantity", quantities.get(i));
+            line.put("unit_price", prices.get(i));
+            line.put("line_total",
+                quantities.get(i) * prices.get(i));
+
+            database.insertOrThrow(
+                "quotation_items", null, line);
+        }
+
+        database.setTransactionSuccessful();
+        msg("Quotation Q-" + id + " saved.");
+        showQuotations();
+
+    } catch (Exception e) {
+        msg("Could not save quotation: " + e.getMessage());
+    } finally {
+        database.endTransaction();
+    }
+}
+
+void viewQuotation(int id) {
+    Cursor q = db.getReadableDatabase().rawQuery(
+        "SELECT customer,date,staff,total FROM quotations WHERE id=?",
+        new String[]{"" + id});
+
+    if (!q.moveToFirst()) {
+        q.close();
+        msg("Quotation not found.");
+        return;
+    }
+
+    String customer = q.getString(0);
+    String quoteDate = q.getString(1);
+    String servedBy = q.getString(2);
+    double total = q.getDouble(3);
+    q.close();
+
+    StringBuilder receipt = new StringBuilder();
+    receipt.append("ROMES TIMBER & HARDWARE\n");
+    receipt.append("Gikomba, Quarry Road\n");
+    receipt.append("QUOTATION Q-").append(id).append("\n");
+    receipt.append("Date: ").append(quoteDate).append("\n");
+    receipt.append("Customer: ").append(customer).append("\n");
+    receipt.append("Prepared by: ").append(servedBy).append("\n\n");
+
+    Cursor items = db.getReadableDatabase().rawQuery(
+        "SELECT item_name,quantity,unit_price,line_total " +
+        "FROM quotation_items WHERE quotation_id=?",
+        new String[]{"" + id});
+
+    while (items.moveToNext()) {
+        receipt.append(items.getString(0)).append("\n");
+        receipt.append("Quantity: ").append(items.getInt(1));
+        receipt.append(" x KES ").append(money(items.getDouble(2)));
+        receipt.append("\nAmount: KES ")
+            .append(money(items.getDouble(3))).append("\n\n");
+    }
+    items.close();
+
+    receipt.append("TOTAL: KES ").append(money(total));
+    receipt.append("\n\nThank you for considering ROMES TIMBER & HARDWARE.");
+
+    String finalReceipt = receipt.toString();
+
+    new AlertDialog.Builder(this)
+        .setTitle("Quotation Q-" + id)
+        .setMessage(finalReceipt)
+        .setPositiveButton("Done", null)
+        .setNeutralButton("Share", (d, w) -> {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_TEXT, finalReceipt);
+            startActivity(Intent.createChooser(
+                send, "Share quotation"));
+        })
+        .show();
+}
     void showProducts() {
         base("Products and stock");
         content.addView(button("+ Add product", this::addProduct));
@@ -718,6 +926,16 @@ void base(String title) {
             d.execSQL("CREATE TABLE expenses(" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "description TEXT,amount REAL,staff TEXT,date TEXT)");
+            d.execSQL("CREATE TABLE quotations(" +
+        "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "customer TEXT,date TEXT,staff TEXT," +
+        "discount REAL,total REAL)");
+
+d.execSQL("CREATE TABLE quotation_items(" +
+        "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "quotation_id INTEGER,item_name TEXT," +
+        "quantity INTEGER,unit_price REAL," +
+        "line_total REAL)");
 
             ContentValues james = new ContentValues();
             james.put("name", "James");
