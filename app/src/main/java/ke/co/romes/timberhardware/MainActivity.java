@@ -423,12 +423,8 @@ void viewQuotation(int id) {
         .setTitle("Quotation Q-" + id)
         .setMessage(finalReceipt)
         .setPositiveButton("Done", null)
-        .setNeutralButton("Share", (d, w) -> {
-            Intent send = new Intent(Intent.ACTION_SEND);
-            send.setType("text/plain");
-            send.putExtra(Intent.EXTRA_TEXT, finalReceipt);
-            startActivity(Intent.createChooser(
-                send, "Share quotation"));
+       .setNeutralButton("Share PDF", (d, w) -> {
+    createQuotationPdf(id);
         })
         .show();
 }
@@ -971,4 +967,200 @@ d.execSQL("CREATE TABLE quotation_items(" +
     }
 }
     }
+    
+void createQuotationPdf(int id) {
+    Cursor q = db.getReadableDatabase().rawQuery(
+        "SELECT customer,date,staff,discount,total FROM quotations WHERE id=?",
+        new String[]{String.valueOf(id)}
+    );
+
+    if (!q.moveToFirst()) {
+        q.close();
+        msg("Quotation not found.");
+        return;
+    }
+
+    String customer = q.getString(0);
+    String quoteDate = q.getString(1);
+    String servedBy = q.getString(2);
+    double discount = q.getDouble(3);
+    double total = q.getDouble(4);
+    q.close();
+
+    PdfDocument document = new PdfDocument();
+
+    try {
+        int pageWidth = 595;
+        int pageHeight = 842;
+
+        PdfDocument.PageInfo pageInfo =
+            new PdfDocument.PageInfo.Builder(
+                pageWidth, pageHeight, 1
+            ).create();
+
+        PdfDocument.Page page = document.startPage(pageInfo);
+        Canvas canvas = page.getCanvas();
+
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        // White background
+        paint.setColor(android.graphics.Color.WHITE);
+        canvas.drawPaint(paint);
+
+        // Business heading
+        paint.setColor(android.graphics.Color.BLACK);
+        paint.setTextSize(23);
+        paint.setTypeface(Typeface.create(
+            Typeface.DEFAULT, Typeface.BOLD));
+        canvas.drawText("ROMES TIMBER & HARDWARE", 35, 55, paint);
+
+        // Gold line
+        paint.setColor(android.graphics.Color.rgb(212, 175, 55));
+        paint.setStrokeWidth(4);
+        canvas.drawLine(35, 72, 560, 72, paint);
+
+        // Business details
+        paint.setColor(android.graphics.Color.BLACK);
+        paint.setTextSize(10);
+        paint.setTypeface(Typeface.DEFAULT);
+        canvas.drawText("Gikomba, along Quarry Road, Nairobi, Kenya",
+            35, 94, paint);
+        canvas.drawText("James: 0727525451   |   Lucy: 0721475798",
+            35, 110, paint);
+
+        // Document title
+        paint.setTextSize(19);
+        paint.setTypeface(Typeface.create(
+            Typeface.DEFAULT, Typeface.BOLD));
+        canvas.drawText("QUOTATION Q-" + id, 35, 155, paint);
+
+        paint.setTextSize(11);
+        paint.setTypeface(Typeface.DEFAULT);
+        canvas.drawText("Date: " + quoteDate, 35, 185, paint);
+        canvas.drawText("Customer: " + customer, 35, 205, paint);
+        canvas.drawText("Prepared by: " + servedBy, 35, 225, paint);
+
+        // Table heading
+        int tableTop = 255;
+        int rowHeight = 32;
+
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(1);
+        paint.setColor(android.graphics.Color.BLACK);
+        canvas.drawRect(35, tableTop, 560, tableTop + rowHeight, paint);
+
+        paint.setStyle(Paint.Style.FILL);
+        paint.setTypeface(Typeface.create(
+            Typeface.DEFAULT, Typeface.BOLD));
+        paint.setTextSize(10);
+
+        canvas.drawText("Description", 43, tableTop + 21, paint);
+        canvas.drawText("Qty", 320, tableTop + 21, paint);
+        canvas.drawText("Unit Price", 370, tableTop + 21, paint);
+        canvas.drawText("Amount", 480, tableTop + 21, paint);
+
+        // Table items
+        Cursor items = db.getReadableDatabase().rawQuery(
+            "SELECT item_name,quantity,unit_price,line_total " +
+            "FROM quotation_items WHERE quotation_id=?",
+            new String[]{String.valueOf(id)}
+        );
+
+        double subtotal = 0;
+        int y = tableTop + rowHeight;
+
+        paint.setTypeface(Typeface.DEFAULT);
+        paint.setTextSize(10);
+
+        while (items.moveToNext()) {
+            if (y > 680) break;
+
+            String name = items.getString(0);
+            int quantity = items.getInt(1);
+            double unitPrice = items.getDouble(2);
+            double lineTotal = items.getDouble(3);
+
+            subtotal += lineTotal;
+
+            paint.setStyle(Paint.Style.STROKE);
+            canvas.drawRect(35, y, 560, y + rowHeight, paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawText(name.length() > 38
+                ? name.substring(0, 35) + "..." : name,
+                43, y + 21, paint);
+
+            canvas.drawText(String.valueOf(quantity),
+                320, y + 21, paint);
+
+            canvas.drawText(money(unitPrice),
+                370, y + 21, paint);
+
+            canvas.drawText(money(lineTotal),
+                480, y + 21, paint);
+
+            y += rowHeight;
+        }
+
+        items.close();
+
+        // Totals
+        y += 35;
+        paint.setTypeface(Typeface.DEFAULT);
+        paint.setTextSize(12);
+
+        canvas.drawText("Subtotal: KES " + money(subtotal),
+            350, y, paint);
+
+        y += 25;
+        canvas.drawText("Discount: KES " + money(discount),
+            350, y, paint);
+
+        y += 30;
+        paint.setTypeface(Typeface.create(
+            Typeface.DEFAULT, Typeface.BOLD));
+        paint.setTextSize(16);
+        canvas.drawText("TOTAL: KES " + money(total),
+            350, y, paint);
+
+        // Footer
+        paint.setTypeface(Typeface.DEFAULT);
+        paint.setTextSize(11);
+        canvas.drawText(
+            "Thank you for considering ROMES TIMBER & HARDWARE.",
+            90, 790, paint
+        );
+
+        document.finishPage(page);
+
+        File file = new File(
+            getCacheDir(), "Quotation_Q-" + id + ".pdf"
+        );
+
+        FileOutputStream output = new FileOutputStream(file);
+        document.writeTo(output);
+        output.close();
+        document.close();
+
+        Uri uri = FileProvider.getUriForFile(
+            this,
+            "ke.co.romes.timberhardware.fileprovider",
+            file
+        );
+
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("application/pdf");
+        send.putExtra(Intent.EXTRA_STREAM, uri);
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        startActivity(Intent.createChooser(
+            send, "Share quotation PDF"
+        ));
+
+    } catch (Exception e) {
+        document.close();
+        msg("Could not create quotation PDF: " + e.getMessage());
+    }
+}
+
 }
