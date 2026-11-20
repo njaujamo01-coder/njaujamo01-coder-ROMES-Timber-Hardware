@@ -941,12 +941,12 @@ d.execSQL("CREATE TABLE quotation_items(" +
 
             ContentValues james = new ContentValues();
             james.put("name", "James");
-            james.put("pin_hash", new MainActivity().hash("1234"));
+            james.put("pin_hash", MainActivity.hash("1234"));
             d.insert("users", null, james);
 
             ContentValues lucy = new ContentValues();
             lucy.put("name", "Lucy");
-            lucy.put("pin_hash", new MainActivity().hash("5678"));
+            lucy.put("pin_hash", MainActivity.hash("5678"));
             d.insert("users", null, lucy);
         }
 
