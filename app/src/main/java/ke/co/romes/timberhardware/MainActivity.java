@@ -968,6 +968,7 @@ d.execSQL("CREATE TABLE quotation_items(" +
 }
     }
     
+
 void createQuotationPdf(int id) {
     Cursor q = db.getReadableDatabase().rawQuery(
         "SELECT customer,date,staff,discount,total FROM quotations WHERE id=?",
@@ -987,159 +988,227 @@ void createQuotationPdf(int id) {
     double total = q.getDouble(4);
     q.close();
 
+    ArrayList<String> names = new ArrayList<>();
+    ArrayList<Integer> quantities = new ArrayList<>();
+    ArrayList<Double> prices = new ArrayList<>();
+    ArrayList<Double> amounts = new ArrayList<>();
+
+    Cursor items = db.getReadableDatabase().rawQuery(
+        "SELECT item_name,quantity,unit_price,line_total " +
+        "FROM quotation_items WHERE quotation_id=?",
+        new String[]{String.valueOf(id)}
+    );
+
+    double subtotal = 0;
+
+    while (items.moveToNext()) {
+        names.add(items.getString(0));
+        quantities.add(items.getInt(1));
+        prices.add(items.getDouble(2));
+        amounts.add(items.getDouble(3));
+        subtotal += items.getDouble(3);
+    }
+    items.close();
+
+    if (names.isEmpty()) {
+        msg("This quotation has no items.");
+        return;
+    }
+
     PdfDocument document = new PdfDocument();
 
     try {
-        int pageWidth = 595;
-        int pageHeight = 842;
+        int pageNumber = 1;
+        int startIndex = 0;
 
-        PdfDocument.PageInfo pageInfo =
-            new PdfDocument.PageInfo.Builder(
-                pageWidth, pageHeight, 1
-            ).create();
+        while (startIndex < names.size()) {
 
-        PdfDocument.Page page = document.startPage(pageInfo);
-        Canvas canvas = page.getCanvas();
+            int capacity = pageNumber == 1 ? 10 : 13;
+            int count = Math.min(
+                capacity, names.size() - startIndex);
 
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            boolean lastPage =
+                startIndex + count == names.size();
 
-        // White background
-        paint.setColor(android.graphics.Color.WHITE);
-        canvas.drawPaint(paint);
+            PdfDocument.PageInfo pageInfo =
+                new PdfDocument.PageInfo.Builder(
+                    595, 842, pageNumber).create();
 
-        // Business heading
-        paint.setColor(android.graphics.Color.BLACK);
-        paint.setTextSize(23);
-        paint.setTypeface(Typeface.create(
-            Typeface.DEFAULT, Typeface.BOLD));
-        canvas.drawText("ROMES TIMBER & HARDWARE", 35, 55, paint);
+            PdfDocument.Page page =
+                document.startPage(pageInfo);
 
-        // Gold line
-        paint.setColor(android.graphics.Color.rgb(212, 175, 55));
-        paint.setStrokeWidth(4);
-        canvas.drawLine(35, 72, 560, 72, paint);
+            Canvas canvas = page.getCanvas();
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        // Business details
-        paint.setColor(android.graphics.Color.BLACK);
-        paint.setTextSize(10);
-        paint.setTypeface(Typeface.DEFAULT);
-        canvas.drawText("Gikomba, along Quarry Road, Nairobi, Kenya",
-            35, 94, paint);
-        canvas.drawText("James: 0727525451   |   Lucy: 0721475798",
-            35, 110, paint);
+            // White background
+            paint.setColor(android.graphics.Color.WHITE);
+            canvas.drawPaint(paint);
 
-        // Document title
-        paint.setTextSize(19);
-        paint.setTypeface(Typeface.create(
-            Typeface.DEFAULT, Typeface.BOLD));
-        canvas.drawText("QUOTATION Q-" + id, 35, 155, paint);
+            // Business heading
+            paint.setColor(android.graphics.Color.BLACK);
+            paint.setTextSize(23);
+            paint.setTypeface(Typeface.create(
+                Typeface.DEFAULT, Typeface.BOLD));
 
-        paint.setTextSize(11);
-        paint.setTypeface(Typeface.DEFAULT);
-        canvas.drawText("Date: " + quoteDate, 35, 185, paint);
-        canvas.drawText("Customer: " + customer, 35, 205, paint);
-        canvas.drawText("Prepared by: " + servedBy, 35, 225, paint);
+            canvas.drawText(
+                "ROMES TIMBER & HARDWARE", 35, 55, paint);
 
-        // Table heading
-        int tableTop = 255;
-        int rowHeight = 32;
+            // Gold line
+            paint.setColor(
+                android.graphics.Color.rgb(212, 175, 55));
+            paint.setStrokeWidth(4);
+            canvas.drawLine(35, 72, 560, 72, paint);
 
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(1);
-        paint.setColor(android.graphics.Color.BLACK);
-        canvas.drawRect(35, tableTop, 560, tableTop + rowHeight, paint);
+            // Business contacts
+            paint.setColor(android.graphics.Color.BLACK);
+            paint.setTextSize(10);
+            paint.setTypeface(Typeface.DEFAULT);
 
-        paint.setStyle(Paint.Style.FILL);
-        paint.setTypeface(Typeface.create(
-            Typeface.DEFAULT, Typeface.BOLD));
-        paint.setTextSize(10);
+            canvas.drawText(
+                "Gikomba, along Quarry Road, Nairobi, Kenya",
+                35, 94, paint);
 
-        canvas.drawText("Description", 43, tableTop + 21, paint);
-        canvas.drawText("Qty", 320, tableTop + 21, paint);
-        canvas.drawText("Unit Price", 370, tableTop + 21, paint);
-        canvas.drawText("Amount", 480, tableTop + 21, paint);
+            canvas.drawText(
+                "James: 0727525451   |   Lucy: 0721475798",
+                35, 110, paint);
 
-        // Table items
-        Cursor items = db.getReadableDatabase().rawQuery(
-            "SELECT item_name,quantity,unit_price,line_total " +
-            "FROM quotation_items WHERE quotation_id=?",
-            new String[]{String.valueOf(id)}
-        );
+            // Quotation details
+            paint.setTextSize(19);
+            paint.setTypeface(Typeface.create(
+                Typeface.DEFAULT, Typeface.BOLD));
 
-        double subtotal = 0;
-        int y = tableTop + rowHeight;
+            canvas.drawText(
+                "QUOTATION Q-" + id, 35, 155, paint);
 
-        paint.setTypeface(Typeface.DEFAULT);
-        paint.setTextSize(10);
+            paint.setTextSize(11);
+            paint.setTypeface(Typeface.DEFAULT);
 
-        while (items.moveToNext()) {
-            if (y > 680) break;
+            if (pageNumber == 1) {
+                canvas.drawText(
+                    "Date: " + quoteDate, 35, 185, paint);
+                canvas.drawText(
+                    "Customer: " + customer, 35, 205, paint);
+                canvas.drawText(
+                    "Prepared by: " + servedBy, 35, 225, paint);
+            } else {
+                canvas.drawText(
+                    "Customer: " + customer + " (continued)",
+                    35, 185, paint);
+            }
 
-            String name = items.getString(0);
-            int quantity = items.getInt(1);
-            double unitPrice = items.getDouble(2);
-            double lineTotal = items.getDouble(3);
-
-            subtotal += lineTotal;
+            // Table
+            int tableTop = pageNumber == 1 ? 255 : 170;
+            int rowHeight = 32;
 
             paint.setStyle(Paint.Style.STROKE);
-            canvas.drawRect(35, y, 560, y + rowHeight, paint);
+            paint.setStrokeWidth(1);
+            paint.setColor(android.graphics.Color.BLACK);
+
+            canvas.drawRect(
+                35, tableTop, 560, tableTop + rowHeight, paint);
 
             paint.setStyle(Paint.Style.FILL);
-            canvas.drawText(name.length() > 38
-                ? name.substring(0, 35) + "..." : name,
-                43, y + 21, paint);
+            paint.setTypeface(Typeface.create(
+                Typeface.DEFAULT, Typeface.BOLD));
+            paint.setTextSize(10);
 
-            canvas.drawText(String.valueOf(quantity),
-                320, y + 21, paint);
+            canvas.drawText(
+                "Description", 43, tableTop + 21, paint);
+            canvas.drawText(
+                "Qty", 320, tableTop + 21, paint);
+            canvas.drawText(
+                "Unit Price", 370, tableTop + 21, paint);
+            canvas.drawText(
+                "Amount", 480, tableTop + 21, paint);
 
-            canvas.drawText(money(unitPrice),
-                370, y + 21, paint);
+            int y = tableTop + rowHeight;
 
-            canvas.drawText(money(lineTotal),
-                480, y + 21, paint);
+            paint.setTypeface(Typeface.DEFAULT);
+            paint.setTextSize(10);
 
-            y += rowHeight;
+            for (int i = startIndex;
+                 i < startIndex + count; i++) {
+
+                paint.setStyle(Paint.Style.STROKE);
+                canvas.drawRect(
+                    35, y, 560, y + rowHeight, paint);
+
+                paint.setStyle(Paint.Style.FILL);
+
+                String itemName = names.get(i);
+
+                if (itemName.length() > 35) {
+                    itemName = itemName.substring(0, 32) + "...";
+                }
+
+                canvas.drawText(
+                    itemName, 43, y + 21, paint);
+
+                canvas.drawText(
+                    String.valueOf(quantities.get(i)),
+                    320, y + 21, paint);
+
+                canvas.drawText(
+                    money(prices.get(i)),
+                    370, y + 21, paint);
+
+                canvas.drawText(
+                    money(amounts.get(i)),
+                    480, y + 21, paint);
+
+                y += rowHeight;
+            }
+
+            // Totals on the final page only
+            if (lastPage) {
+                y += 35;
+
+                paint.setTextSize(12);
+                paint.setTypeface(Typeface.DEFAULT);
+
+                canvas.drawText(
+                    "Subtotal: KES " + money(subtotal),
+                    350, y, paint);
+
+                y += 25;
+
+                canvas.drawText(
+                    "Discount: KES " + money(discount),
+                    350, y, paint);
+
+                y += 30;
+
+                paint.setTypeface(Typeface.create(
+                    Typeface.DEFAULT, Typeface.BOLD));
+                paint.setTextSize(16);
+
+                canvas.drawText(
+                    "TOTAL: KES " + money(total),
+                    350, y, paint);
+            }
+
+            // Footer
+            paint.setTypeface(Typeface.DEFAULT);
+            paint.setTextSize(11);
+
+            canvas.drawText(
+                "Thank you for considering ROMES TIMBER & HARDWARE.",
+                90, 790, paint);
+
+            document.finishPage(page);
+
+            startIndex += count;
+            pageNumber++;
         }
 
-        items.close();
-
-        // Totals
-        y += 35;
-        paint.setTypeface(Typeface.DEFAULT);
-        paint.setTextSize(12);
-
-        canvas.drawText("Subtotal: KES " + money(subtotal),
-            350, y, paint);
-
-        y += 25;
-        canvas.drawText("Discount: KES " + money(discount),
-            350, y, paint);
-
-        y += 30;
-        paint.setTypeface(Typeface.create(
-            Typeface.DEFAULT, Typeface.BOLD));
-        paint.setTextSize(16);
-        canvas.drawText("TOTAL: KES " + money(total),
-            350, y, paint);
-
-        // Footer
-        paint.setTypeface(Typeface.DEFAULT);
-        paint.setTextSize(11);
-        canvas.drawText(
-            "Thank you for considering ROMES TIMBER & HARDWARE.",
-            90, 790, paint
-        );
-
-        document.finishPage(page);
-
         File file = new File(
-            getCacheDir(), "Quotation_Q-" + id + ".pdf"
-        );
+            getCacheDir(), "Quotation_Q-" + id + ".pdf");
 
-        FileOutputStream output = new FileOutputStream(file);
-        document.writeTo(output);
-        output.close();
+        try (FileOutputStream output =
+                 new FileOutputStream(file)) {
+            document.writeTo(output);
+        }
+
         document.close();
 
         Uri uri = FileProvider.getUriForFile(
@@ -1154,13 +1223,15 @@ void createQuotationPdf(int id) {
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         startActivity(Intent.createChooser(
-            send, "Share quotation PDF"
-        ));
+            send, "Share quotation PDF"));
 
     } catch (Exception e) {
-        document.close();
-        msg("Could not create quotation PDF: " + e.getMessage());
-    }
-}
+        try {
+            document.close();
+        } catch (Exception ignored) {
+        }
 
+        msg("Could not create quotation PDF: " +
+            e.getMessage());
+    }
 }
