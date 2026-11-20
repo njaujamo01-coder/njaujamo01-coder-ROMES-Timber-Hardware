@@ -993,11 +993,11 @@ void createQuotationPdf(int id) {
     ArrayList<Double> prices = new ArrayList<>();
     ArrayList<Double> amounts = new ArrayList<>();
 
-    Cursor items = db.getReadableDatabase().rawQuery(
-        "SELECT item_name,quantity,unit_price,line_total " +
-        "FROM quotation_items WHERE quotation_id=?",
-        new String[]{String.valueOf(id)}
-    );
+   Cursor items = db.getReadableDatabase().rawQuery(
+    "SELECT item_name,quantity,unit_price,line_total " +
+    "FROM quotation_items WHERE quotation_id=? ORDER BY id ASC",
+    new String[]{String.valueOf(id)}
+);
 
     double subtotal = 0;
 
