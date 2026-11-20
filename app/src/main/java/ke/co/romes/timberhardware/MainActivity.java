@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
         Toast.makeText(this, s, Toast.LENGTH_LONG).show();
     }
 
-    String hash(String pin) {
+   static String hash(String pin) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] bytes = md.digest(pin.getBytes("UTF-8"));
